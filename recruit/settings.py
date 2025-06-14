@@ -25,7 +25,7 @@ SECRET_KEY = "django-insecure-cnx5-_+szjp7#!=%1$pqiqv=21&bglqf_=ldpd%j0!t*3!cr@2
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['.vercel.app']
 
 
 # Application definition
@@ -79,6 +79,18 @@ DATABASES = {
         "NAME": BASE_DIR / "db.sqlite3",
     }
 }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'ananth',
+#         'USER': 'ananth',
+#         'PASSWORD': 'ananth',
+#         'HOST': 'localhost',
+#         'PORT': '5432',
+#     }
+# }
+
 
 
 # Password validation
