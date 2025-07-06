@@ -17,10 +17,11 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path
-from recruit.views import health_check
+from recruit.views import health_check, index
 
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("healthcheck", health_check, name="health_check")
+    path("healthcheck", health_check, name="health_check"),
+    path("index", index)
 ]

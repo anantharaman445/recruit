@@ -1,0 +1,458 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twilio Video Call Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .call-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+        }
+        .call-button {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        .call-button:hover {
+            background: #0056b3;
+        }
+        .call-button.emergency {
+            background: #dc3545;
+        }
+        .call-button.emergency:hover {
+            background: #c82333;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .demo-links {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+        }
+        .demo-links h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Twilio Video Call Demo</h1>
+        
+        <div class="call-section">
+            <h2>Custom Video Call</h2>
+            <p>Create a video call with custom participant names:</p>
+            
+            <form id="customCallForm">
+                <div class="form-group">
+                    <label for="callerName">Your Name:</label>
+                    <input type="text" id="callerName" value="John Doe" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="calleeName">Calling:</label>
+                    <input type="text" id="calleeName" value="Jane Smith" required>
+                </div>
+                
+                <button type="submit" class="call-button">Start Video Call</button>
+            </form>
+        </div>
+        
+        <div class="demo-links">
+            <h3>Quick Demo Links</h3>
+            <p>Click any link below to start a video call immediately:</p>
+            
+            <a href="/initiate-call?caller=Doctor&callee=Patient" class="call-button">
+                📞 Doctor-Patient Call
+            </a>
+            
+            <a href="/initiate-call?caller=Manager&callee=Employee" class="call-button">
+                💼 Manager-Employee Call
+            </a>
+            
+            <a href="/initiate-call?caller=Support&callee=Customer" class="call-button">
+                🎧 Support Call
+            </a>
+            
+            <a href="/initiate-call?caller=Emergency&callee=Responder" class="call-button emergency">
+                🚨 Emergency Call
+            </a>
+        </div>
+        
+        <div class="call-section">
+            <h2>Join Existing Call</h2>
+            <p>If someone shared a room name with you, enter it below:</p>
+            
+            <form id="joinCallForm">
+                <div class="form-group">
+                    <label for="roomName">Room Name:</label>
+                    <input type="text" id="roomName" placeholder="e.g., call_abc123" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="participantName">Your Name:</label>
+                    <input type="text" id="participantName" value="Guest" required>
+                </div>
+                
+                <button type="submit" class="call-button">Join Call</button>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        document.getElementById('customCallForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const caller = document.getElementById('callerName').value;
+            const callee = document.getElementById('calleeName').value;
+            
+            window.location.href = `/initiate-call?caller=${encodeURIComponent(caller)}&callee=${encodeURIComponent(callee)}`;
+        });
+        
+        document.getElementById('joinCallForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const roomName = document.getElementById('roomName').value;
+            const participantName = document.getElementById('participantName').value;
+            
+            window.location.href = `/join-call/${encodeURIComponent(roomName)}?name=${encodeURIComponent(participantName)}`;
+        });
+    </script>
+</body>
+</html>
+
+<!-- templates/video_call.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Call - {{ room_name }}</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: #000;
+            color: white;
+        }
+        .video-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #remote-media {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        #local-media {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 200px;
+            height: 150px;
+            border: 2px solid white;
+            border-radius: 10px;
+            object-fit: cover;
+        }
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+        }
+        .control-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 15px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            transition: background 0.3s;
+        }
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .control-btn.danger {
+            background: #dc3545;
+        }
+        .control-btn.danger:hover {
+            background: #c82333;
+        }
+        .status {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .participant-info {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #waiting-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-size: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="video-container">
+        <div id="waiting-message">
+            <h2>Connecting to call...</h2>
+            <p>Room: {{ room_name }}</p>
+            <p>Participant: {{ participant }}</p>
+        </div>
+        
+        <div id="remote-media-container" style="display: none;">
+            <div id="remote-media"></div>
+        </div>
+        
+        <div id="local-media-container" style="display: none;">
+            <video id="local-media" autoplay muted playsinline></video>
+        </div>
+        
+        <div class="status">
+            <div id="connection-status">Connecting...</div>
+        </div>
+        
+        <div class="participant-info">
+            <div>{{ participant }}</div>
+            <div id="participant-count">Participants: 0</div>
+        </div>
+        
+        <div class="controls">
+            <button class="control-btn" id="mute-btn" title="Mute/Unmute">
+                🎤
+            </button>
+            <button class="control-btn" id="video-btn" title="Camera On/Off">
+                📹
+            </button>
+            <button class="control-btn danger" id="hang-up-btn" title="End Call">
+                📞
+            </button>
+        </div>
+    </div>
+    
+    <script src="https://sdk.twilio.com/js/video/releases/2.27.0/twilio-video.min.js"></script>
+    <script>
+        const { connect, LocalVideoTrack, LocalAudioTrack } = Twilio.Video;
+        
+        let room = null;
+        let localVideoTrack = null;
+        let localAudioTrack = null;
+        let isAudioMuted = false;
+        let isVideoMuted = false;
+        
+        const token = '{{ token }}';
+        const roomName = '{{ room_name }}';
+        const participantName = '{{ participant }}';
+        
+        // DOM elements
+        const waitingMessage = document.getElementById('waiting-message');
+        const remoteMediaContainer = document.getElementById('remote-media-container');
+        const localMediaContainer = document.getElementById('local-media-container');
+        const connectionStatus = document.getElementById('connection-status');
+        const participantCount = document.getElementById('participant-count');
+        const muteBtn = document.getElementById('mute-btn');
+        const videoBtn = document.getElementById('video-btn');
+        const hangUpBtn = document.getElementById('hang-up-btn');
+        
+        // Connect to the room
+        async function connectToRoom() {
+            try {
+                // Create local audio and video tracks
+                localAudioTrack = await LocalAudioTrack.create();
+                localVideoTrack = await LocalVideoTrack.create();
+                
+                // Connect to the room
+                room = await connect(token, {
+                    name: roomName,
+                    audio: localAudioTrack,
+                    video: localVideoTrack
+                });
+                
+                console.log('Connected to room:', room.name);
+                connectionStatus.textContent = 'Connected';
+                
+                // Hide waiting message and show video containers
+                waitingMessage.style.display = 'none';
+                localMediaContainer.style.display = 'block';
+                
+                // Attach local video track
+                const localMediaElement = document.getElementById('local-media');
+                localVideoTrack.attach(localMediaElement);
+                
+                // Handle existing participants
+                room.participants.forEach(participantConnected);
+                
+                // Handle new participants
+                room.on('participantConnected', participantConnected);
+                room.on('participantDisconnected', participantDisconnected);
+                
+                // Update participant count
+                updateParticipantCount();
+                
+            } catch (error) {
+                console.error('Error connecting to room:', error);
+                connectionStatus.textContent = 'Connection failed';
+                waitingMessage.innerHTML = '<h2>Connection failed</h2><p>' + error.message + '</p>';
+            }
+        }
+        
+        function participantConnected(participant) {
+            console.log('Participant connected:', participant.identity);
+            
+            // Show remote media container
+            remoteMediaContainer.style.display = 'block';
+            
+            // Handle existing tracks
+            participant.tracks.forEach(publication => {
+                if (publication.isSubscribed) {
+                    trackSubscribed(publication.track);
+                }
+            });
+            
+            // Handle new tracks
+            participant.on('trackSubscribed', trackSubscribed);
+            participant.on('trackUnsubscribed', trackUnsubscribed);
+            
+            updateParticipantCount();
+        }
+        
+        function participantDisconnected(participant) {
+            console.log('Participant disconnected:', participant.identity);
+            
+            // Remove all tracks from this participant
+            participant.tracks.forEach(publication => {
+                if (publication.track) {
+                    publication.track.detach();
+                }
+            });
+            
+            // Hide remote media if no participants
+            if (room.participants.size === 0) {
+                remoteMediaContainer.style.display = 'none';
+            }
+            
+            updateParticipantCount();
+        }
+        
+        function trackSubscribed(track) {
+            const remoteMediaDiv = document.getElementById('remote-media');
+            track.attach(remoteMediaDiv);
+        }
+        
+        function trackUnsubscribed(track) {
+            track.detach();
+        }
+        
+        function updateParticipantCount() {
+            const count = room ? room.participants.size + 1 : 1; // +1 for local participant
+            participantCount.textContent = `Participants: ${count}`;
+        }
+        
+        // Control button handlers
+        muteBtn.addEventListener('click', () => {
+            if (localAudioTrack) {
+                if (isAudioMuted) {
+                    localAudioTrack.enable();
+                    muteBtn.textContent = '🎤';
+                    isAudioMuted = false;
+                } else {
+                    localAudioTrack.disable();
+                    muteBtn.textContent = '🔇';
+                    isAudioMuted = true;
+                }
+            }
+        });
+        
+        videoBtn.addEventListener('click', () => {
+            if (localVideoTrack) {
+                if (isVideoMuted) {
+                    localVideoTrack.enable();
+                    videoBtn.textContent = '📹';
+                    isVideoMuted = false;
+                } else {
+                    localVideoTrack.disable();
+                    videoBtn.textContent = '📷';
+                    isVideoMuted = true;
+                }
+            }
+        });
+        
+        hangUpBtn.addEventListener('click', () => {
+            if (room) {
+                room.disconnect();
+            }
+            window.location.href = '/';
+        });
+        
+        // Handle room disconnection
+        window.addEventListener('beforeunload', () => {
+            if (room) {
+                room.disconnect();
+            }
+        });
+        
+        // Start the connection
+        connectToRoom();
+    </script>
+</body>
+</html>
