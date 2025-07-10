@@ -132,26 +132,23 @@ def start_recording(request):
 
 @csrf_exempt
 def stop_recording(request):
-    try:
-        data = json.loads(request.body)
-        recording_sid = data.get('recording_sid')
-        
-        if not recording_sid or recording_sid not in recording_sessions:
-            return JsonResponse({'error': 'Recording session not found'}, status=404)
-        
-        # Initialize Twilio client
-        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+    data = json.loads(request.body)
+    recording_sid = data.get('recording_sid')
+    
+    if not recording_sid or recording_sid not in recording_sessions:
+        return JsonResponse({'error': 'Recording session not found'}, status=404)
+    
+    success, result = VideoCallRecording().stop_video_call_recording(recording_sid)
+    if not success:
+        return JsonResponse({'error': 'Failed to stop recording'}, status=500)
+    
+    recording_sid = result
 
-        success, result = VideoCallRecording().stop_video_call_recording(recording_sid)
-        if not success:
-            return JsonResponse({'error': 'Failed to stop recording'}, status=500)
-        recording_sid = result
-        recording_sessions[recording_sid]['status'] = 'stopped'
-        return JsonResponse({
-            'recording_sid': recording_sid,
-            'status': 'recording_stopped'
-        })
-
+    recording_sessions[recording_sid]['status'] = 'stopped'
+    return JsonResponse({
+        'recording_sid': recording_sid,
+        'status': 'recording_stopped'
+    })
 
 @csrf_exempt
 def video_webhook(request):
