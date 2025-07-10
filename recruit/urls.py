@@ -30,3 +30,4 @@ urlpatterns = [
     path('stop-recording/', recruit_views.stop_recording, name='stop_recording'),
     path('video-webhook/', recruit_views.video_webhook, name='video_webhook'),
     path('recording-webhook/', recruit_views.recording_webhook, name='recording_webhook'),
+]
