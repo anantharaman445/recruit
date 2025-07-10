@@ -58,7 +58,7 @@ def send_invite(request):
 
 @csrf_exempt
 def interview(request, phone_number):
-    interviews_data = {'+917871903816': {'status': 'invited', 'recordings': {}, 'interview_id': '3037138f-7b4a-44b9-a4ff-4d8fcb2609d6'}}
+    # interviews_data = {'+917871903816': {'status': 'invited', 'recordings': {}, 'interview_id': '3037138f-7b4a-44b9-a4ff-4d8fcb2609d6'}}
     if phone_number not in interviews_data:
         return HttpResponse('Invalid interview link', status=404)
     
