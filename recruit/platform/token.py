@@ -3,6 +3,10 @@ from twilio.jwt.access_token.grants import VideoGrant
 
 import os
 
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_API_KEY = os.getenv("TWILIO_API_KEY")
+TWILIO_API_SECRET = os.getenv("TWILIO_API_SECRET")
+
 
 
 
@@ -19,4 +23,4 @@ class GenerateTwtilioAccessToken:
         room_name = f"interview_{phone_number}_{room_id}"
         video_grant = VideoGrant(room=room_name)
         token.add_grant(video_grant)
-        return token.to_jwt()
+        return token.to_jwt(), room_name
