@@ -25,7 +25,7 @@ SECRET_KEY = "django-insecure-cnx5-_+szjp7#!=%1$pqiqv=21&bglqf_=ldpd%j0!t*3!cr@2
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['.vercel.app']
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -54,7 +54,7 @@ ROOT_URLCONF = "recruit.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        'DIRS': [BASE_DIR / 'recruit/templates'],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
