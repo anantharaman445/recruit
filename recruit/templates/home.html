@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% block title %}Send Interview Invitation{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3>Send Interview Invitation</h3>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{% url 'send_invite' %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="phone_number" class="form-label">Candidate Phone Number</label>
+                        <input type="tel" class="form-control" id="phone_number" name="phone_number" 
+                               placeholder="+1234567890" required>
+                        <div class="form-text">Include country code (e.g., +1 for US)</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Send Interview Link</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

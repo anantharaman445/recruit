@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+
+{% block title %}Video Interview{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="video-container" id="video-container">
+            <div id="local-video"></div>
+            <div class="recording-indicator" id="recording-indicator" style="display: none;">
+                ● Recording
+            </div>
+            <div class="video-controls">
+                <button class="btn btn-danger" id="start-recording" onclick="startRecording()">
+                    Start Recording
+                </button>
+                <button class="btn btn-secondary" id="stop-recording" onclick="stopRecording()" style="display: none;">
+                    Stop Recording
+                </button>
+                <button class="btn btn-success" id="next-question" onclick="nextQuestion()" style="display: none;">
+                    Next Question
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="question-card">
+            <h5>Interview Questions</h5>
+            <div id="questions-list">
+                {% for question in questions %}
+                <div class="question-item" data-question-id="{{ question.id }}">
+                    <strong>Question {{ question.id }}:</strong> {{ question.text }}
+                    <span class="badge bg-secondary ms-2" id="status-{{ question.id }}">Pending</span>
+                </div>
+                <hr>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6>Instructions:</h6>
+                <ul>
+                    <li>Click "Start Recording" to begin your answer</li>
+                    <li>Speak clearly and look at the camera</li>
+                    <li>Click "Stop Recording" when finished</li>
+                    <li>Click "Next Question" to proceed</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentRoom = null;
+let currentQuestionIndex = 0;
+let isRecording = false;
+let localVideoTrack = null;
+let questions = {{ questions|safe }};
+let phoneNumber = "{{ phone_number }}";
+
+// Initialize video call
+async function initializeVideo() {
+    try {
+        // Get access token from server
+        const response = await fetch('/start-call/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                phone_number: phoneNumber,
+                question_id: questions[currentQuestionIndex].id
+            })
+        });
+        
+        const data = await response.json();
+        
+        // Connect to Twilio Video room
+        const room = await Twilio.Video.connect(data.access_token, {
+            name: data.room_name,
+            audio: true,
+            video: true
+        });
+        
+        currentRoom = room;
+        
+        // Display local video
+        room.localParticipant.videoTracks.forEach(publication => {
+            const videoElement = publication.track.attach();
+            videoElement.style.width = '100%';
+            videoElement.style.height = '100%';
+            videoElement.style.objectFit = 'cover';
+            document.getElementById('local-video').appendChild(videoElement);
+        });
+        
+        // Show current question
+        showCurrentQuestion();
+        
+    } catch (error) {
+        console.error('Error initializing video:', error);
+        alert('Failed to initialize video. Please check your camera and microphone permissions.');
+    }
+}
+
+function showCurrentQuestion() {
+    // Highlight current question
+    document.querySelectorAll('.question-item').forEach(item => {
+        item.style.backgroundColor = '';
+    });
+    
+    const currentQuestionElement = document.querySelector(`[data-question-id="${questions[currentQuestionIndex].id}"]`);
+    if (currentQuestionElement) {
+        currentQuestionElement.style.backgroundColor = '#e3f2fd';
+    }
+}
+
+function startRecording() {
+    isRecording = true;
+    document.getElementById('recording-indicator').style.display = 'block';
+    document.getElementById('start-recording').style.display = 'none';
+    document.getElementById('stop-recording').style.display = 'inline-block';
+    
+    // Update question status
+    document.getElementById(`status-${questions[currentQuestionIndex].id}`).textContent = 'Recording';
+    document.getElementById(`status-${questions[currentQuestionIndex].id}`).className = 'badge bg-danger ms-2';
+}
+
+function stopRecording() {
+    isRecording = false;
+    document.getElementById('recording-indicator').style.display = 'none';
+    document.getElementById('stop-recording').style.display = 'none';
+    document.getElementById('next-question').style.display = 'inline-block';
+    
+    // Update question status
+    document.getElementById(`status-${questions[currentQuestionIndex].id}`).textContent = 'Completed';
+    document.getElementById(`status-${questions[currentQuestionIndex].id}`).className = 'badge bg-success ms-2';
+    
+    // Save recording (simulated)
+    saveRecording();
+}
+
+async function saveRecording() {
+    try {
+        const response = await fetch('/save-recording/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                phone_number: phoneNumber,
+                question_id: questions[currentQuestionIndex].id,
+                recording_url: `recording_${phoneNumber}_${questions[currentQuestionIndex].id}.mp4`
+            })
+        });
+        
+        const data = await response.json();
+        console.log('Recording saved:', data);
+        
+    } catch (error) {
+        console.error('Error saving recording:', error);
+    }
+}
+
+function nextQuestion() {
+    currentQuestionIndex++;
+    
+    if (currentQuestionIndex < questions.length) {
+        // Show next question
+        showCurrentQuestion();
+        document.getElementById('next-question').style.display = 'none';
+        document.getElementById('start-recording').style.display = 'inline-block';
+    } else {
+        // Interview completed
+        alert('Interview completed! Thank you for your time.');
+        if (currentRoom) {
+            currentRoom.disconnect();
+        }
+        window.location.href = '/';
+    }
+}
+
+// Initialize video when page loads
+window.addEventListener('load', initializeVideo);
+</script>
