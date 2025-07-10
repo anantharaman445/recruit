@@ -5,6 +5,7 @@ from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from recruit.platform.send_sms import SendSmsFromTwilio
 from recruit.platform.token import GenerateTwtilioAccessToken
+from recruit.platform.video_call import VideoCallRecording
 import uuid
 
 # Static data storage (in-memory for now)
@@ -57,7 +58,7 @@ def send_invite(request):
 
 @csrf_exempt
 def interview(request, phone_number):
-    # interviews_data = {'+917871903816': {'status': 'invited', 'recordings': {}, 'interview_id': '3037138f-7b4a-44b9-a4ff-4d8fcb2609d6'}}
+    interviews_data = {'+917871903816': {'status': 'invited', 'recordings': {}, 'interview_id': '3037138f-7b4a-44b9-a4ff-4d8fcb2609d6'}}
     if phone_number not in interviews_data:
         return HttpResponse('Invalid interview link', status=404)
     
@@ -111,49 +112,24 @@ def start_recording(request):
         
         if phone_number not in interviews_data:
             return JsonResponse({'error': 'Interview not found'}, status=404)
-        
-        # Initialize Twilio client
-        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-        
-        # Start recording using Twilio Compositions API
-        try:
-            # Create room if it doesn't exist
-            if not room_sid:
-                room = client.video.rooms.create(
-                    unique_name=f"interview_{phone_number}_{question_id}",
-                    type='group'
-                )
-                room_sid = room.sid
-                interviews_data[phone_number]['room_sid'] = room_sid
-            
-            # Start recording
-            recording = client.video.recordings.create(
-                room_sid=room_sid,
-                status_callback=request.build_absolute_uri('/recording-webhook/'),
-                status_callback_method='POST'
-            )
-            
-            # Store recording session info
-            recording_sessions[recording.sid] = {
+        url = request.build_absolute_uri('/video-webhook/')
+        success, result = VideoCallRecording().start_video_call_recording(room_sid, phone_number, question_id, url)
+        if not success:
+            return JsonResponse({'error': 'Failed to start recording'}, status=500)
+        recording_sid = result
+
+        recording_sessions[recording_sid] = {
                 'phone_number': phone_number,
                 'question_id': question_id,
                 'room_sid': room_sid,
                 'status': 'recording'
             }
-            
-            return JsonResponse({
-                'recording_sid': recording.sid,
+        
+        return JsonResponse({
+                'recording_sid': recording_sid,
                 'status': 'recording_started'
             })
-            
-        except Exception as e:
-            return JsonResponse({'error': f'Failed to start recording: {str(e)}'}, status=500)
-        
-    except json.JSONDecodeError:
-        return JsonResponse({'error': 'Invalid JSON'}, status=400)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
-    
+
 
 @csrf_exempt
 def stop_recording(request):
@@ -166,26 +142,16 @@ def stop_recording(request):
         
         # Initialize Twilio client
         client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-        
-        # Stop recording
-        try:
-            recording = client.video.recordings(recording_sid).update(status='stopped')
-            
-            # Update recording session status
-            recording_sessions[recording_sid]['status'] = 'stopped'
-            
-            return JsonResponse({
-                'recording_sid': recording_sid,
-                'status': 'recording_stopped'
-            })
-            
-        except Exception as e:
-            return JsonResponse({'error': f'Failed to stop recording: {str(e)}'}, status=500)
-        
-    except json.JSONDecodeError:
-        return JsonResponse({'error': 'Invalid JSON'}, status=400)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+
+        success, result = VideoCallRecording().stop_video_call_recording(recording_sid)
+        if not success:
+            return JsonResponse({'error': 'Failed to stop recording'}, status=500)
+        recording_sid = result
+        recording_sessions[recording_sid]['status'] = 'stopped'
+        return JsonResponse({
+            'recording_sid': recording_sid,
+            'status': 'recording_stopped'
+        })
 
 
 @csrf_exempt
