@@ -104,31 +104,30 @@ def video_status(request):
 
 @csrf_exempt
 def start_recording(request):
-    try:
-        data = json.loads(request.body)
-        phone_number = data.get('phone_number')
-        question_id = data.get('question_id')
-        room_sid = data.get('room_sid')
-        
-        if phone_number not in interviews_data:
-            return JsonResponse({'error': 'Interview not found'}, status=404)
-        url = request.build_absolute_uri('/video-webhook/')
-        success, result = VideoCallRecording().start_video_call_recording(room_sid, phone_number, question_id, url)
-        if not success:
-            return JsonResponse({'error': 'Failed to start recording'}, status=500)
-        recording_sid = result
+    data = json.loads(request.body)
+    phone_number = data.get('phone_number')
+    question_id = data.get('question_id')
+    room_sid = data.get('room_sid')
+    
+    if phone_number not in interviews_data:
+        return JsonResponse({'error': 'Interview not found'}, status=404)
+    url = request.build_absolute_uri('/video-webhook/')
+    success, result = VideoCallRecording().start_video_call_recording(room_sid, phone_number, question_id, url)
+    if not success:
+        return JsonResponse({'error': 'Failed to start recording'}, status=500)
+    recording_sid = result
 
-        recording_sessions[recording_sid] = {
-                'phone_number': phone_number,
-                'question_id': question_id,
-                'room_sid': room_sid,
-                'status': 'recording'
-            }
-        
-        return JsonResponse({
-                'recording_sid': recording_sid,
-                'status': 'recording_started'
-            })
+    recording_sessions[recording_sid] = {
+            'phone_number': phone_number,
+            'question_id': question_id,
+            'room_sid': room_sid,
+            'status': 'recording'
+        }
+    
+    return JsonResponse({
+            'recording_sid': recording_sid,
+            'status': 'recording_started'
+        })
 
 
 @csrf_exempt
