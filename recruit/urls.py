@@ -24,6 +24,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("healthcheck", recruit_views.health_check, name="health_check"),
     path("home", recruit_views.home_page, name='home'),
+    path('start-call/', recruit_views.start_call, name='start_call'),
     path('send-invite/', recruit_views.send_invite, name='send_invite'),
     path('interview/<str:phone_number>/', recruit_views.interview, name='interview'),
     path('start-recording/', recruit_views.start_recording, name='start_recording'),
