@@ -26,4 +26,7 @@ urlpatterns = [
     path("home", recruit_views.home_page, name='home'),
     path('send-invite/', recruit_views.send_invite, name='send_invite'),
     path('interview/<str:phone_number>/', recruit_views.interview, name='interview'),
-]
+    path('start-recording/', recruit_views.start_recording, name='start_recording'),
+    path('stop-recording/', recruit_views.stop_recording, name='stop_recording'),
+    path('video-webhook/', recruit_views.video_webhook, name='video_webhook'),
+    path('recording-webhook/', recruit_views.recording_webhook, name='recording_webhook'),

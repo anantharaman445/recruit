@@ -56,6 +56,227 @@
 let currentRoom = null;
 let currentQuestionIndex = 0;
 let isRecording = false;
+let currentRecordingSid = null;
+let currentRoomSid = null;
+let questions = {{ questions|safe }};
+let phoneNumber = "{{ phone_number }}";
+
+// Initialize video call
+async function initializeVideo() {
+    try {
+        // Get access token from server
+        const response = await fetch('/start-call/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                phone_number: phoneNumber,
+                question_id: questions[currentQuestionIndex].id
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        // Connect to Twilio Video room
+        const room = await Twilio.Video.connect(data.access_token, {
+            name: data.room_name,
+            audio: true,
+            video: { width: 640, height: 480 }
+        });
+        
+        currentRoom = room;
+        currentRoomSid = room.sid;
+        
+        // Display local video
+        room.localParticipant.videoTracks.forEach(publication => {
+            const videoElement = publication.track.attach();
+            videoElement.style.width = '100%';
+            videoElement.style.height = '100%';
+            videoElement.style.objectFit = 'cover';
+            document.getElementById('local-video').appendChild(videoElement);
+        });
+        
+        // Show current question
+        showCurrentQuestion();
+        
+        console.log('Connected to room:', room.name);
+        
+    } catch (error) {
+        console.error('Error initializing video:', error);
+        alert('Failed to initialize video. Please check your camera and microphone permissions.');
+    }
+}
+
+function showCurrentQuestion() {
+    // Highlight current question
+    document.querySelectorAll('.question-item').forEach(item => {
+        item.style.backgroundColor = '';
+    });
+    
+    const currentQuestionElement = document.querySelector(`[data-question-id="${questions[currentQuestionIndex].id}"]`);
+    if (currentQuestionElement) {
+        currentQuestionElement.style.backgroundColor = '#e3f2fd';
+    }
+}
+
+async function startRecording() {
+    try {
+        // Start recording via Twilio API
+        const response = await fetch('/start-recording/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                phone_number: phoneNumber,
+                question_id: questions[currentQuestionIndex].id,
+                room_sid: currentRoomSid
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        currentRecordingSid = data.recording_sid;
+        isRecording = true;
+        
+        // Update UI
+        document.getElementById('recording-indicator').style.display = 'block';
+        document.getElementById('start-recording').style.display = 'none';
+        document.getElementById('stop-recording').style.display = 'inline-block';
+        
+        // Update question status
+        document.getElementById(`status-${questions[currentQuestionIndex].id}`).textContent = 'Recording';
+        document.getElementById(`status-${questions[currentQuestionIndex].id}`).className = 'badge bg-danger ms-2';
+        
+        console.log('Recording started:', currentRecordingSid);
+        
+    } catch (error) {
+        console.error('Error starting recording:', error);
+        alert('Failed to start recording. Please try again.');
+    }
+}
+
+async function stopRecording() {
+    try {
+        if (!currentRecordingSid) {
+            throw new Error('No active recording session');
+        }
+        
+        // Stop recording via Twilio API
+        const response = await fetch('/stop-recording/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                recording_sid: currentRecordingSid
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        isRecording = false;
+        
+        // Update UI
+        document.getElementById('recording-indicator').style.display = 'none';
+        document.getElementById('stop-recording').style.display = 'none';
+        document.getElementById('next-question').style.display = 'inline-block';
+        
+        // Update question status
+        document.getElementById(`status-${questions[currentQuestionIndex].id}`).textContent = 'Completed';
+        document.getElementById(`status-${questions[currentQuestionIndex].id}`).className = 'badge bg-success ms-2';
+        
+        console.log('Recording stopped:', currentRecordingSid);
+        
+    } catch (error) {
+        console.error('Error stopping recording:', error);
+        alert('Failed to stop recording. Please try again.');
+    }
+}
+
+function nextQuestion() {
+    currentQuestionIndex++;
+    currentRecordingSid = null;
+    
+    if (currentQuestionIndex < questions.length) {
+        // Show next question
+        showCurrentQuestion();
+        document.getElementById('next-question').style.display = 'none';
+        document.getElementById('start-recording').style.display = 'inline-block';
+    } else {
+        // Interview completed
+        alert('Interview completed! Thank you for your time. Your recordings will be processed shortly.');
+        if (currentRoom) {
+            currentRoom.disconnect();
+        }
+        window.location.href = '/';
+    }
+}
+
+// Handle room disconnection
+function handleRoomDisconnect() {
+    console.log('Disconnected from room');
+    if (currentRoom) {
+        currentRoom.removeAllListeners();
+        currentRoom = null;
+    }
+}
+
+// Initialize video when page loads
+window.addEventListener('load', initializeVideo);
+
+// Handle page unload
+window.addEventListener('beforeunload', function(event) {
+    if (currentRoom) {
+        currentRoom.disconnect();
+    }
+});
+</script>
+{% endblock %}-md-4">
+        <div class="question-card">
+            <h5>Interview Questions</h5>
+            <div id="questions-list">
+                {% for question in questions %}
+                <div class="question-item" data-question-id="{{ question.id }}">
+                    <strong>Question {{ question.id }}:</strong> {{ question.text }}
+                    <span class="badge bg-secondary ms-2" id="status-{{ question.id }}">Pending</span>
+                </div>
+                <hr>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6>Instructions:</h6>
+                <ul>
+                    <li>Click "Start Recording" to begin your answer</li>
+                    <li>Speak clearly and look at the camera</li>
+                    <li>Click "Stop Recording" when finished</li>
+                    <li>Click "Next Question" to proceed</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentRoom = null;
+let currentQuestionIndex = 0;
+let isRecording = false;
 let localVideoTrack = null;
 let questions = {{ questions|safe }};
 let phoneNumber = "{{ phone_number }}";
@@ -177,7 +398,7 @@ function nextQuestion() {
         if (currentRoom) {
             currentRoom.disconnect();
         }
-        window.location.href = '/home';
+        window.location.href = '/';
     }
 }
 

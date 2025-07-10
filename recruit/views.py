@@ -9,6 +9,7 @@ import uuid
 
 # Static data storage (in-memory for now)
 interviews_data = {}
+recording_sessions = {}
 
 
 def health_check(request):
@@ -101,19 +102,146 @@ def video_status(request):
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
 @csrf_exempt
-def save_recording(request):
-    if request.method == 'POST':
+def start_recording(request):
+    try:
         data = json.loads(request.body)
         phone_number = data.get('phone_number')
         question_id = data.get('question_id')
-        recording_url = data.get('recording_url')
+        room_sid = data.get('room_sid')
         
-        if phone_number in interviews_data:
-            interviews_data[phone_number]['recordings'][question_id] = recording_url
-            interviews_data[phone_number]['status'] = 'completed'
+        if phone_number not in interviews_data:
+            return JsonResponse({'error': 'Interview not found'}, status=404)
+        
+        # Initialize Twilio client
+        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+        
+        # Start recording using Twilio Compositions API
+        try:
+            # Create room if it doesn't exist
+            if not room_sid:
+                room = client.video.rooms.create(
+                    unique_name=f"interview_{phone_number}_{question_id}",
+                    type='group'
+                )
+                room_sid = room.sid
+                interviews_data[phone_number]['room_sid'] = room_sid
             
-            return JsonResponse({'status': 'success'})
+            # Start recording
+            recording = client.video.recordings.create(
+                room_sid=room_sid,
+                status_callback=request.build_absolute_uri('/recording-webhook/'),
+                status_callback_method='POST'
+            )
+            
+            # Store recording session info
+            recording_sessions[recording.sid] = {
+                'phone_number': phone_number,
+                'question_id': question_id,
+                'room_sid': room_sid,
+                'status': 'recording'
+            }
+            
+            return JsonResponse({
+                'recording_sid': recording.sid,
+                'status': 'recording_started'
+            })
+            
+        except Exception as e:
+            return JsonResponse({'error': f'Failed to start recording: {str(e)}'}, status=500)
         
-        return JsonResponse({'error': 'Interview not found'}, status=404)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
     
-    return JsonResponse({'error': 'Invalid request'}, status=400)
+
+@csrf_exempt
+def stop_recording(request):
+    try:
+        data = json.loads(request.body)
+        recording_sid = data.get('recording_sid')
+        
+        if not recording_sid or recording_sid not in recording_sessions:
+            return JsonResponse({'error': 'Recording session not found'}, status=404)
+        
+        # Initialize Twilio client
+        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+        
+        # Stop recording
+        try:
+            recording = client.video.recordings(recording_sid).update(status='stopped')
+            
+            # Update recording session status
+            recording_sessions[recording_sid]['status'] = 'stopped'
+            
+            return JsonResponse({
+                'recording_sid': recording_sid,
+                'status': 'recording_stopped'
+            })
+            
+        except Exception as e:
+            return JsonResponse({'error': f'Failed to stop recording: {str(e)}'}, status=500)
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+def video_webhook(request):
+    """Handle Twilio Video webhooks"""
+    if request.method == 'POST':
+        try:
+            # Parse webhook data
+            room_sid = request.POST.get('RoomSid')
+            room_status = request.POST.get('StatusCallbackEvent')
+            
+            print(f"Video webhook: Room {room_sid} - Status: {room_status}")
+            
+            return HttpResponse('OK', status=200)
+            
+        except Exception as e:
+            print(f"Error processing video webhook: {str(e)}")
+            return HttpResponse('Error', status=500)
+    
+    return HttpResponse('Method not allowed', status=405)
+
+@csrf_exempt
+def recording_webhook(request):
+    """Handle Twilio Recording webhooks"""
+    if request.method == 'POST':
+        try:
+            # Parse webhook data
+            recording_sid = request.POST.get('RecordingSid')
+            recording_status = request.POST.get('StatusCallbackEvent')
+            media_url = request.POST.get('MediaUrl')
+            
+            print(f"Recording webhook: {recording_sid} - Status: {recording_status}")
+            
+            if recording_sid in recording_sessions:
+                session_info = recording_sessions[recording_sid]
+                phone_number = session_info['phone_number']
+                question_id = session_info['question_id']
+                
+                # Update interview data with recording info
+                if recording_status == 'recording-completed' and media_url:
+                    interviews_data[phone_number]['recordings'][question_id] = {
+                        'recording_sid': recording_sid,
+                        'media_url': media_url,
+                        'status': 'completed'
+                    }
+                    
+                    # Download and save recording locally (optional)
+                    # download_recording(recording_sid, media_url, phone_number, question_id)
+                
+                # Update session status
+                recording_sessions[recording_sid]['status'] = recording_status
+            
+            return HttpResponse('OK', status=200)
+            
+        except Exception as e:
+            print(f"Error processing recording webhook: {str(e)}")
+            return HttpResponse('Error', status=500)
+    
+    return HttpResponse('Method not allowed', status=405)
