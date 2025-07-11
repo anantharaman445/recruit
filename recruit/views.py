@@ -12,6 +12,7 @@ import uuid
 interviews_data = {}
 recording_sessions = {}
 
+NGROK_URL= "https://3d31ca1c7df7.ngrok-free.app"
 
 def health_check(request):
     data = {'message': 'OK'}
@@ -30,7 +31,7 @@ def send_invite(request):
             return redirect('home')
         # Generate interview link
         interview_link = request.build_absolute_uri(f'/interview/{phone_number}/')
-        # interview_link = f'https://66e9a6df7c52.ngrok-free.app/interview/{phone_number}'
+        # interview_link = f'{NGROK_URL}/interview/{phone_number}'
         
         # Send SMS
         try:
@@ -58,7 +59,8 @@ def send_invite(request):
 
 @csrf_exempt
 def interview(request, phone_number):
-    # interviews_data = {'+917871903816': {'status': 'invited', 'recordings': {}, 'interview_id': '3037138f-7b4a-44b9-a4ff-4d8fcb2609d6'}}
+    # print("interviews_data", interviews_data)
+    interviews_data = {'+917871903816': {'status': 'invited', 'recordings': {}, 'interview_id': 'd7fac306-951c-4427-a115-40b6904aab40'}}
     if phone_number not in interviews_data:
         return HttpResponse('Invalid interview link', status=404)
     
@@ -108,16 +110,16 @@ def start_recording(request):
     phone_number = data.get('phone_number')
     question_id = data.get('question_id')
     room_sid = data.get('room_sid')
-    
+    interviews_data = {'+917871903816': {'status': 'invited', 'recordings': {}, 'interview_id': 'd7fac306-951c-4427-a115-40b6904aab40'}}
     if phone_number not in interviews_data:
         return JsonResponse({'error': 'Interview not found'}, status=404)
     url = request.build_absolute_uri('/video-webhook/')
     success, result = VideoCallRecording().start_video_call_recording(room_sid, phone_number, question_id, url)
     if not success:
         return JsonResponse({'error': 'Failed to start recording'}, status=500)
-    recording_sid = result
+    composition_sid = result
 
-    recording_sessions[recording_sid] = {
+    recording_sessions[composition_sid] = {
             'phone_number': phone_number,
             'question_id': question_id,
             'room_sid': room_sid,
@@ -125,7 +127,7 @@ def start_recording(request):
         }
     
     return JsonResponse({
-            'recording_sid': recording_sid,
+            'composition_sid': composition_sid,
             'status': 'recording_started'
         })
 
@@ -133,20 +135,20 @@ def start_recording(request):
 @csrf_exempt
 def stop_recording(request):
     data = json.loads(request.body)
-    recording_sid = data.get('recording_sid')
+    composition_sid = data.get('composition_sid')
     
-    if not recording_sid or recording_sid not in recording_sessions:
+    if not composition_sid or composition_sid not in recording_sessions:
         return JsonResponse({'error': 'Recording session not found'}, status=404)
     
-    success, result = VideoCallRecording().stop_video_call_recording(recording_sid)
+    success, result = VideoCallRecording().stop_video_call_recording(composition_sid)
     if not success:
         return JsonResponse({'error': 'Failed to stop recording'}, status=500)
     
-    recording_sid = result
+    composition_sid = result
 
-    recording_sessions[recording_sid]['status'] = 'stopped'
+    recording_sessions[composition_sid]['status'] = 'stopped'
     return JsonResponse({
-        'recording_sid': recording_sid,
+        'composition_sid': composition_sid,
         'status': 'recording_stopped'
     })
 
@@ -166,6 +168,10 @@ def video_webhook(request):
         except Exception as e:
             print(f"Error processing video webhook: {str(e)}")
             return HttpResponse('Error', status=500)
+    if request.method == 'GET':
+        print("Get record composition", request.GET)
+        return HttpResponse('OK', status=200)
+        
     
     return HttpResponse('Method not allowed', status=405)
 
