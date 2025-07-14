@@ -56,7 +56,7 @@
 let currentRoom = null;
 let currentQuestionIndex = 0;
 let isRecording = false;
-let currentRecordingSid = null;
+let currentCompositionSid = null;
 let currentRoomSid = null;
 let questions = {{ questions|safe }};
 let phoneNumber = "{{ phone_number }}";
@@ -145,7 +145,7 @@ async function startRecording() {
             throw new Error(data.error);
         }
         
-        currentRecordingSid = data.recording_sid;
+        currentCompositionSid = data.composition_sid;
         isRecording = true;
         
         // Update UI
@@ -157,7 +157,7 @@ async function startRecording() {
         document.getElementById(`status-${questions[currentQuestionIndex].id}`).textContent = 'Recording';
         document.getElementById(`status-${questions[currentQuestionIndex].id}`).className = 'badge bg-danger ms-2';
         
-        console.log('Recording started:', currentRecordingSid);
+        console.log('Recording started:', currentCompositionSid);
         
     } catch (error) {
         console.error('Error starting recording:', error);
@@ -167,7 +167,7 @@ async function startRecording() {
 
 async function stopRecording() {
     try {
-        if (!currentRecordingSid) {
+        if (!currentCompositionSid) {
             throw new Error('No active recording session');
         }
         
@@ -178,7 +178,7 @@ async function stopRecording() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                recording_sid: currentRecordingSid
+                composition_sid: currentCompositionSid
             })
         });
         
@@ -199,7 +199,7 @@ async function stopRecording() {
         document.getElementById(`status-${questions[currentQuestionIndex].id}`).textContent = 'Completed';
         document.getElementById(`status-${questions[currentQuestionIndex].id}`).className = 'badge bg-success ms-2';
         
-        console.log('Recording stopped:', currentRecordingSid);
+        console.log('Recording stopped:', currentCompositionSid);
         
     } catch (error) {
         console.error('Error stopping recording:', error);
@@ -209,7 +209,7 @@ async function stopRecording() {
 
 function nextQuestion() {
     currentQuestionIndex++;
-    currentRecordingSid = null;
+    currentCompositionSid = null;
     
     if (currentQuestionIndex < questions.length) {
         // Show next question

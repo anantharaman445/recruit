@@ -12,7 +12,7 @@ import uuid
 interviews_data = {}
 recording_sessions = {}
 
-NGROK_URL= "https://3d31ca1c7df7.ngrok-free.app"
+NGROK_URL= "https://b26fd2bd6706.ngrok-free.app"
 
 def health_check(request):
     data = {'message': 'OK'}
@@ -31,7 +31,7 @@ def send_invite(request):
             return redirect('home')
         # Generate interview link
         interview_link = request.build_absolute_uri(f'/interview/{phone_number}/')
-        # interview_link = f'{NGROK_URL}/interview/{phone_number}'
+        interview_link = f'{NGROK_URL}/interview/{phone_number}'
         
         # Send SMS
         try:
@@ -47,7 +47,7 @@ def send_invite(request):
                 'recordings': {},
                 'interview_id': str(uuid.uuid4())
             }
-            
+            print("interviews_data", interviews_data)
             messages.success(request, f'Interview invitation sent to {phone_number}')
             return redirect('home')
             
@@ -60,7 +60,7 @@ def send_invite(request):
 @csrf_exempt
 def interview(request, phone_number):
     # print("interviews_data", interviews_data)
-    interviews_data = {'+917871903816': {'status': 'invited', 'recordings': {}, 'interview_id': 'd7fac306-951c-4427-a115-40b6904aab40'}}
+    interviews_data = {'+917871903816': {'status': 'invited', 'recordings': {}, 'interview_id': 'b80a33bc-8e57-4542-b65e-b0fbd361337a'}}
     if phone_number not in interviews_data:
         return HttpResponse('Invalid interview link', status=404)
     
@@ -110,7 +110,7 @@ def start_recording(request):
     phone_number = data.get('phone_number')
     question_id = data.get('question_id')
     room_sid = data.get('room_sid')
-    interviews_data = {'+917871903816': {'status': 'invited', 'recordings': {}, 'interview_id': 'd7fac306-951c-4427-a115-40b6904aab40'}}
+    interviews_data = {'+917871903816': {'status': 'invited', 'recordings': {}, 'interview_id': 'b80a33bc-8e57-4542-b65e-b0fbd361337a'}}
     if phone_number not in interviews_data:
         return JsonResponse({'error': 'Interview not found'}, status=404)
     url = request.build_absolute_uri('/video-webhook/')
